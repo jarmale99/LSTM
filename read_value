@@ -36,7 +36,7 @@ void loop()
  
 
   //---------------- Channel 1 ----------------//
-  double temp = ThingSpeak.readLongField(counterChannelNumber, FieldNumber1, myCounterReadAPIKey);
+  float temp = ThingSpeak.readFloatField(counterChannelNumber, FieldNumber1, myCounterReadAPIKey);
   int statusCode = ThingSpeak.getLastReadStatus();
   if (statusCode == 200)
   {
