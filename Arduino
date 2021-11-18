@@ -1,0 +1,142 @@
+#include "ThingSpeak.h"
+#include <ESP8266WiFi.h>
+#define BLYNK_PRINT Serial
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+
+
+#define SECOND 1000
+#define MINUTE (60 * SECOND)
+#define HOUR (60 * MINUTE)
+#define THRESHOLD 418
+
+
+long predicted_value = NULL;
+int statusCode;
+int moisture = NULL;
+int count2 = 1;
+bool no_rain = true;
+bool flag1 = true;
+bool flag2 = true;
+bool flag3 = true;
+
+
+BlynkTimer timer;
+SimpleTimer rain_timer;
+
+char auth[] = "gEDFYZuA7RfAXL0TL8ctfw45sURAqsF2";
+const char ssid[] = "Sridhar _2.4GEXT";  // your network SSID (name)
+const char pass[] = "shridhar64";   // your network password         
+WiFiClient  client;
+
+//---------Channel Details---------//
+unsigned long counterChannelNumber = 1398193;            // Channel ID
+const char * myCounterReadAPIKey = "L2SEQTDRF7RP5JM0"; // Read API Key
+const int FieldNumber1 = 1;  // The field you wish to read
+//const int FieldNumber2 = 2;  // The field you wish to read
+//-------------------------------//
+
+
+
+
+
+//void CheckRain(){
+//  if(moisture > THRESHOLD){
+//    Blynk.notify("The mositure is low and it has not rained hence turning on the valve");
+//    digitalWrite(D1, LOW);    
+//    no_rain = true;
+//  }
+//}
+
+
+void myTimerEvent() {
+  
+  Blynk.virtualWrite(V5, moisture );
+  
+  if (moisture > THRESHOLD && predicted_value > 4) {
+    flag2 = true;
+    flag3 = true;
+    if(flag1){
+      Serial.println("inside 1");
+      Blynk.notify("The mositure is low and the model has predicted that it is going to rain hence the pump will not be turned on");
+      flag1 = false;
+    }
+    digitalWrite(D1, HIGH);
+    //timer.setInterval(3 * HOUR, CheckRain);     
+     //rain_timer.setTimeout(3 * HOUR, CheckRain);
+  }       
+      
+ else if (moisture > THRESHOLD && predicted_value < 4) {
+      if(flag2){
+        Serial.println("inside 2");
+        Blynk.notify("The mositure is low and the model has predicted that it is not going to rain hence the pump will be turned on");
+        flag2 = false;
+      }
+      digitalWrite(D1, LOW);
+    flag3 = true;
+    flag1 = true;
+    delay(6 * SECOND);
+ } 
+      
+ else if (moisture < THRESHOLD) {
+  flag2 = true;
+  flag1 = true;
+  if(flag3){
+    Serial.println("inside 3");
+    Blynk.notify("The mositure is high, no need to water");
+    flag3 = false;
+  }
+    digitalWrite(D1, HIGH); 
+ }
+}
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(D1, OUTPUT);
+  WiFi.mode(WIFI_STA);
+  ThingSpeak.begin(client);
+  Blynk.begin(auth, ssid, pass);
+  pinMode(A0,INPUT);
+  timer.setInterval(300, myTimerEvent);
+}
+
+void loop() {
+
+  Blynk.run();
+  timer.run();
+
+  moisture = analogRead(A0);
+  Serial.print("Moisture = ");
+  Serial.println(moisture);
+
+ 
+ // ----------------- Network -----------------//
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("in");
+    Serial.print("Connecting to ");
+    Serial.print(ssid);
+    Serial.println(" ....");
+    
+    while (WiFi.status() != WL_CONNECTED) {
+      WiFi.begin(ssid, pass);
+      delay(5000);
+    }
+    
+    Serial.println("Connected to Wi-Fi Succesfully.");
+  }
+  //--------- End of Network connection--------//
+
+
+
+  //---------------- Channel 1 ----------------//
+  predicted_value = ThingSpeak.readLongField(counterChannelNumber, FieldNumber1, myCounterReadAPIKey);
+  statusCode = ThingSpeak.getLastReadStatus();
+  if (statusCode == 200) {
+    Serial.print("Predicted value : ");
+    Serial.println(predicted_value);
+  }
+  else {
+    Serial.println("Unable to read channel / No internet connection");
+  }
+  delay(200);
+}
